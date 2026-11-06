@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>珍珠接接樂</title>
+<style>
+:root{--bg:#f1dfc6;--ink:#3a2418;--card:#fff7ea;--tea:#b8794a;--taro:#7c5fb0;--line:#d9bf9d}
+@media (prefers-color-scheme: dark){:root{--bg:#271a13;--ink:#f6e6d2;--card:#38271d;--line:#5a4130}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.7}
+main{max-width:520px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:2.2rem;margin:0 0 4px;letter-spacing:.08em}
+.sub{margin:0 0 16px;opacity:.8}
+.stage{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:10px}
+.bar{display:flex;justify-content:space-between;font-weight:700;padding:2px 6px 8px}
+canvas{display:block;width:100%;height:auto;border-radius:12px;background:#fdf1dc;touch-action:none}
+button{margin-top:10px;width:100%;padding:12px;font-size:1.05rem;font-weight:700;border:0;border-radius:12px;background:var(--taro);color:#fff;cursor:pointer}
+button:focus-visible{outline:3px solid var(--tea);outline-offset:2px}
+h2{font-size:1.2rem;margin:28px 0 8px}
+.how{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:4px 18px 14px}
+table{border-collapse:collapse;width:100%}
+td{padding:6px 4px;border-bottom:1px dashed var(--line)}
+td:first-child{font-size:1.5rem;width:48px}
+ol,ul{padding-left:1.2em;margin:6px 0}
+footer{margin-top:24px;font-size:.85rem;opacity:.7}
+</style>
+</head>
+<body>
+<main>
+<h1>珍珠接接樂</h1>
+<p class="sub">幫這杯珍珠奶茶接住掉下來的料，躲開冰塊！</p>
+
+<section class="stage" aria-label="遊戲區">
+  <div class="bar"><span>分數 <span id="score">0</span></span><span>最高 <span id="best">0</span></span><span id="lives">❤️❤️❤️</span></div>
+  <canvas id="c" width="360" height="520"></canvas>
+  <button id="start">開始遊戲</button>
+</section>
+
+<section class="how">
+  <h2>如何使用這個網站</h2>
+  <ol>
+    <li>按下「開始遊戲」。</li>
+    <li>電腦：用鍵盤 ← → 或滑鼠左右移動杯子。手機：手指在遊戲畫面上左右滑動。</li>
+    <li>接住掉下來的東西得分；有三顆愛心，用完遊戲結束。</li>
+    <li>分數越高，掉落越快。最高分會記在你的瀏覽器裡。</li>
+  </ol>
+  <h2>掉落物說明</h2>
+  <table>
+    <tr><td>⚫</td><td>珍珠：+1 分</td></tr>
+    <tr><td>🍓</td><td>草莓（少見）：+5 分</td></tr>
+    <tr><td>🧊</td><td>冰塊：接到扣一顆愛心，請閃開！</td></tr>
+    <tr><td>💔</td><td>漏接珍珠或草莓：不扣愛心，但會錯失分數</td></tr>
+  </table>
+</section>
+<footer>作業示範網站・使用 HTML、CSS、JavaScript 製作</footer>
+</main>
+
+<script>
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const W=cv.width,H=cv.height,CUPY=H-60;
+const $=id=>document.getElementById(id);
+let st='idle',score=0,lives=3,cupX=W/2,items=[],spawn=0,last=0,best=0,keys={};
+try{best=+localStorage.getItem('boba-best')||0}catch(e){}
+$('best').textContent=best;
+
+function types(){
+  const r=Math.random();
+  if(r<.22)return{e:'🧊',bad:true};
+  if(r<.32)return{e:'🍓',pts:5};
+  return{e:'⚫',pts:1};
+}
+function reset(){score=0;lives=3;items=[];spawn=0;cupX=W/2;hud()}
+function hud(){$('score').textContent=score;$('lives').textContent='❤️'.repeat(lives)||'—'}
+function start(){reset();st='play';last=performance.now();$('start').textContent='重新開始';requestAnimationFrame(loop)}
+function over(){
+  st='over';
+  if(score>best){best=score;$('best').textContent=best;try{localStorage.setItem('boba-best',best)}catch(e){}}
+}
+function loop(t){
+  if(st!=='play'){draw();return}
+  const dt=Math.min((t-last)/1000,.05);last=t;
+  if(keys.ArrowLeft)cupX-=360*dt;
+  if(keys.ArrowRight)cupX+=360*dt;
+  cupX=Math.max(36,Math.min(W-36,cupX));
+  spawn-=dt;
+  if(spawn<=0){spawn=Math.max(.35,.9-score*.008);const o=types();o.x=30+Math.random()*(W-60);o.y=-20;items.push(o)}
+  const v=150+score*3;
+  for(const o of items){o.y+=v*dt}
+  items=items.filter(o=>{
+    if(o.y>CUPY-18&&o.y<CUPY+20&&Math.abs(o.x-cupX)<38){
+      if(o.bad){lives--}else{score+=o.pts}
+      hud();if(lives<=0)over();return false;
+    }
+    return o.y<H+20;
+  });
+  draw();requestAnimationFrame(loop);
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.font='30px serif';
+  for(const o of items)ctx.fillText(o.e,o.x,o.y);
+  ctx.font='64px serif';ctx.fillText('🧋',cupX,CUPY+10);
+  if(st!=='play'){
+    ctx.fillStyle='rgba(58,36,24,.72)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.font='bold 30px sans-serif';
+    ctx.fillText(st==='over'?'遊戲結束':'準備好了嗎？',W/2,H/2-30);
+    ctx.font='20px sans-serif';
+    ctx.fillText(st==='over'?'你得了 '+score+' 分':'按下方「開始遊戲」',W/2,H/2+10);
+  }
+}
+function pointer(e){
+  if(st!=='play')return;
+  const r=cv.getBoundingClientRect(),p=e.touches?e.touches[0]:e;
+  cupX=(p.clientX-r.left)/r.width*W;
+}
+cv.addEventListener('mousemove',pointer);
+cv.addEventListener('touchmove',e=>{e.preventDefault();pointer(e)},{passive:false});
+cv.addEventListener('touchstart',pointer,{passive:true});
+addEventListener('keydown',e=>{if(e.key.startsWith('Arrow')){keys[e.key]=true;e.preventDefault()}});
+addEventListener('keyup',e=>{keys[e.key]=false});
+$('start').addEventListener('click',start);
+draw();
+</script>
+</body>
+</html>
